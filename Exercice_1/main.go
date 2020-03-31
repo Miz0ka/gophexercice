@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"time"
 )
 
 func main() {
@@ -17,7 +18,7 @@ func main() {
 	questions := make(map[string]string)
 
 	flag.StringVar(&csvFilePath, "csv", ".\\probleme.csv", "Link to the csv file")
-	timer := flag.Int("time", 42, "Timer")
+	timer := flag.Int("time", 2, "Timer")
 	flag.Parse()
 
 	if _, err := os.Stat(csvFilePath); err != nil {
@@ -44,19 +45,34 @@ func main() {
 	fmt.Print("Initialisation\n")
 
 	quizz(questions, &goodRep, &failRep, *timer)
-
-	fmt.Print("\n", goodRep, failRep, timer)
 }
 
-func quizz(quizz map[string]string, goodRep *int, badRep *int, timer int) {
-	var input string
+func quizz(quizz map[string]string, goodRep *int, badRep *int, timerLimit int) {
+	done := make(chan string)
+	timer := time.NewTicker(time.Duration(timerLimit) * time.Second)
+	go getInput(done)
 	for q, a := range quizz {
 		fmt.Println(q + " : ")
-		fmt.Scanf("%s", &input)
-		if input == a {
-			*goodRep++
-		} else {
+		select {
+		case <-timer.C:
+			fmt.Println("Time up")
 			*badRep++
+			break
+		case ans := <-done:
+			if ans == a {
+				*goodRep++
+			} else {
+				*badRep++
+			}
 		}
+	}
+	fmt.Println("Le score final est de : %d/%d", *goodRep, *badRep)
+}
+
+func getInput(inputChan chan string) {
+	var input string
+	for {
+		fmt.Scanf("%s", &input)
+		inputChan <- input
 	}
 }
